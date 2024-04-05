@@ -11,6 +11,7 @@ def Create_UNETR(input_channel, label_nbr,cropSize):
         hidden_size=768,
         mlp_dim=3072,
         num_heads=12,
+        # num_samples=1,
         # feature_size=32,
         # hidden_size=1024,
         # mlp_dim=4096,

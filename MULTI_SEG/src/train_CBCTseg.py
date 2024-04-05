@@ -19,6 +19,7 @@ from monai.data import (
     decollate_batch,
 )
 
+
 from torch.utils.tensorboard import SummaryWriter
 
 
@@ -27,6 +28,7 @@ def main(args):
     # #####################################
     #  Init_param
     # #####################################
+    torch.cuda.empty_cache()
     label_nbr = args.nbr_label
     nbr_workers = args.nbr_worker
 
@@ -38,17 +40,17 @@ def main(args):
     trainingSet,validationSet = GetTrainValDataset(args.dir_patients,args.test_percentage/100)
 
     # print(validationSet)
-    # model = Create_UNETR(
-    #     input_channel=1,
-    #     label_nbr=label_nbr,
-    #     cropSize=cropSize
-    # ).to(DEVICE)
-
-    model = Create_SwinUNETR(
+    model = Create_UNETR(
         input_channel=1,
         label_nbr=label_nbr,
         cropSize=cropSize
     ).to(DEVICE)
+
+    # model = Create_SwinUNETR(
+    #     input_channel=1,
+    #     label_nbr=label_nbr,
+    #     cropSize=cropSize
+    # ).to(DEVICE)
 
     # model.load_state_dict(torch.load("/Users/luciacev-admin/Documents/Projects/Benchmarks/CBCT_Seg_benchmark/data/best_model.pth",map_location=DEVICE))
 
@@ -56,31 +58,38 @@ def main(args):
 
     torch.backends.cudnn.benchmark = True
 
-    train_ds = CacheDataset(
+    train_ds = SmartCacheDataset(
         data=trainingSet,
         transform=train_transforms,
         cache_rate=1.0,
-        num_workers=nbr_workers,
+        num_init_workers=nbr_workers,
+        num_replace_workers=nbr_workers,
+        replace_rate=0.3,
     )
+    print('train_ds',len(train_ds))
     train_loader = DataLoader(
-        train_ds, batch_size=1, 
+        train_ds,
+        batch_size=args.batch_size,
         shuffle=True,
-        num_workers=nbr_workers, 
+        num_workers=nbr_workers,
         pin_memory=True
     )
-    val_ds = CacheDataset(
-        data=validationSet, 
-        transform=val_transforms, 
-        cache_rate=1.0, 
-        num_workers=nbr_workers
+    val_ds = SmartCacheDataset(
+        data=validationSet,
+        transform=val_transforms,
+        cache_rate=1.0,
+        num_init_workers=nbr_workers,
+        num_replace_workers=nbr_workers,
+        replace_rate=0.3,
     )
     val_loader = DataLoader(
-        val_ds, batch_size=1, 
-        shuffle=False, 
-        num_workers=nbr_workers, 
+        val_ds,
+        batch_size=args.batch_size,
+        shuffle=False,
+        num_workers=nbr_workers,
         pin_memory=True
     )
-    
+
     # case_num = 0
     # img = val_ds[case_num]["scan"]
     # label = val_ds[case_num]["seg"]
@@ -105,6 +114,7 @@ def main(args):
 
     # TM.Train()
     # TM.Validate()
+    torch.cuda.empty_cache()
     TM.Process(args.max_epoch)
 
 class TrainingMaster:
@@ -148,7 +158,6 @@ class TrainingMaster:
         self.predictor = 10
 
 
-    
 
     def Process(self,num_epoch):
         for epoch in range(num_epoch):
@@ -238,7 +247,7 @@ class TrainingMaster:
 
         self.PrintSlices(val_inputs,val_labels,val_outputs)
         self.tensorboard.close()
-    
+
     def RandomPermutChannels(self,batch,batch2):
         prob = np.random.rand()
         if prob < 0.25:
@@ -254,7 +263,7 @@ class TrainingMaster:
             permImg = batch
             permImg2 = batch2
         return permImg,permImg2
-        
+
     def PrintSlices(self,val_inputs,val_labels,val_outputs):
 
         size = val_inputs.shape[4]
@@ -302,23 +311,21 @@ class TrainingMaster:
 
 if __name__ ==  '__main__':
     parser = argparse.ArgumentParser(description='Training to find ROI for Automatic Landmarks Identification', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    
+
     input_group = parser.add_argument_group('dir')
     input_group.add_argument('--dir_project', type=str, help='Directory with all the project',default='/Users/luciacev-admin/Documents/Projects/Benchmarks/CBCT_Seg_benchmark')
     input_group.add_argument('--dir_data', type=str, help='Input directory with 3D images', default=parser.parse_args().dir_project+'/data')
     input_group.add_argument('--dir_patients', type=str, help='Input directory with 3D images',default=parser.parse_args().dir_data+'/Patients') #default = "/Users/luciacev-admin/Desktop/Mandible_Dataset")# 
     input_group.add_argument('--dir_model', type=str, help='Output directory of the training',default=parser.parse_args().dir_data+'/Models')
 
-    input_group.add_argument('-mn', '--model_name', type=str, help='Name of the model', default="MandSeg_model")
-    input_group.add_argument('-vp', '--test_percentage', type=int, help='Percentage of data to keep for validation', default=13)
-    input_group.add_argument('-cs', '--crop_size', nargs="+", type=float, help='Wanted crop size', default=[128 ,128, 128])
+    input_group.add_argument('-mn', '--model_name', type=str, help='Name of the model', default="MaxCISeg_model")
+    input_group.add_argument('-vp', '--test_percentage', type=int, help='Percentage of data to keep for validation', default=15)
+    input_group.add_argument('-cs', '--crop_size', nargs="+", type=float, help='Wanted crop size', default=[96 ,96, 96])
     input_group.add_argument('-me', '--max_epoch', type=int, help='Number of training epocs', default=250)
-    input_group.add_argument('-nl', '--nbr_label', type=int, help='Number of label', default=6)
-    input_group.add_argument('-bs', '--batch_size', type=int, help='batch size', default=10)
-    input_group.add_argument('-nw', '--nbr_worker', type=int, help='Number of worker', default=10)
-
-
+    input_group.add_argument('-nl', '--nbr_label', type=int, help='Number of label', default=2) #was default=6
+    input_group.add_argument('-bs', '--batch_size', type=int, help='batch size', default=1)
+    input_group.add_argument('-nw', '--nbr_worker', type=int, help='Number of worker', default=4)
 
     args = parser.parse_args()
-    
+
     main(args)

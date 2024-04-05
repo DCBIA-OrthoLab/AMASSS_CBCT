@@ -44,14 +44,14 @@ def main(args):
 		image = img_obj["img"]
 		out = img_obj["out"]
 		# out = img_obj["img"]
-		
+
 		if not os.path.exists(os.path.dirname(out)):
 			os.makedirs(os.path.dirname(out))
 		CorrectHisto(image, image,0.01, 0.99)
 
 if __name__ ==  '__main__':
     parser = argparse.ArgumentParser(description='MD_reader', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    
+
     input_group = parser.add_argument_group('Input files')
     input_group.add_argument('-i','--dir', type=str, help='Input directory with 3D images',required=True)
 
@@ -59,7 +59,7 @@ if __name__ ==  '__main__':
     output_params.add_argument('-o','--out', type=str, help='Output directory')
 
     input_group.add_argument('-rad', '--radius', type=int, help='Radius of the closing', default=3)
-    
+
     args = parser.parse_args()
-    
+
     main(args)

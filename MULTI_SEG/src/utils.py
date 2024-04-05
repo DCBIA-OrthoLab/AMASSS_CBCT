@@ -1,6 +1,7 @@
-import numpy as np  
+import numpy as np
 import SimpleITK as sitk
 import itk
+
 import vtk
 
 import os
@@ -136,7 +137,7 @@ MODELS_GROUP = {
         {
             "MAX" : 1
         },
-        "RC":        
+        "RC":
         {
             "RC" : 1
         },
@@ -343,6 +344,7 @@ def GenWorkSpace(dir,test_percentage,out_dir):
             elements_dash = file_name.split("-")
             file_folder = elements_dash[0]
             info = elements_dash[1].split("_scan_Sp")[0].split("_seg_Sp")
+            print('info',info)
             patient = info[0]
 
             # print(patient)
@@ -451,8 +453,8 @@ def GetTrainValDataset(dir,val_percentage):
         if True in [ext in basename for ext in [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"]]:
             file_name = basename.split(".")[0]
             # elements_uder = file_name.split("_")
-            patient = basename.split("_MERGED")[0].split("_scan")[0].split("_SKIN")[0]
-            file_folder = os.path.basename(os.path.dirname(img_fn)) 
+            patient = basename.split("_MERGED")[0].split("_scan")[0].split("_SKIN")[0].split("_MAX-Seg")[0]
+            file_folder = os.path.basename(os.path.dirname(img_fn))
 
             # elements_dash = file_name.split("-")
             # file_folder = elements_dash[0]
@@ -475,14 +477,14 @@ def GetTrainValDataset(dir,val_percentage):
                 data_dic[file_folder][patient]["scan"] = img_fn
                 data_dic[file_folder][patient]["file_name"] = img_fn
 
-            elif "MERGED-Seg" in basename:
+            elif "_MAX-Seg" in basename:
                 data_dic[file_folder][patient]["seg"] = img_fn
 
                 # seg_img = sitk.ReadImage(img_fn)
                 # seg_arr = sitk.GetArrayFromImage(seg_img)
                 # seg_max = np.max(seg_arr)
                 # seg_min = np.min(seg_arr)
-                
+
 
                 # if seg_max > 6:
                 #     print("----> Segmentation image has more than 6 labels :",img_fn)
@@ -491,7 +493,6 @@ def GetTrainValDataset(dir,val_percentage):
                 #     # print(label)
                 #     if label not in seg_arr:
                 #         print(f"----> Segmentation image has missing label {label} :",img_fn)
-                
                 # if seg_max < 0:
                 #     print("----> Segmentation image has neg label :",img_fn)
             # else:
@@ -520,7 +521,7 @@ def GetTrainValDataset(dir,val_percentage):
 
     # print(folder_dic)
     train_data,valid_data = [],[]
-    num_patient = 0 
+    num_patient = 0
     for folder,patients in folder_dic.items():
         tr,val = train_test_split(patients,test_size=val_percentage,shuffle=True)
         train_data += tr
@@ -529,16 +530,19 @@ def GetTrainValDataset(dir,val_percentage):
 
     print("Total patient:", num_patient)
 
+    # print("train data:", train_data)
+    print("-------------------")
+    print("valid data:", valid_data)
     return train_data,valid_data
 
 
-########  #######   #######  ##        ######  
-   ##    ##     ## ##     ## ##       ##    ## 
-   ##    ##     ## ##     ## ##       ##       
-   ##    ##     ## ##     ## ##        ######  
-   ##    ##     ## ##     ## ##             ## 
-   ##    ##     ## ##     ## ##       ##    ## 
-   ##     #######   #######  ########  ######  
+########  #######   #######  ##        ######
+   ##    ##     ## ##     ## ##       ##    ##
+   ##    ##     ## ##     ## ##       ##
+   ##    ##     ## ##     ## ##        ######
+   ##    ##     ## ##     ## ##             ##
+   ##    ##     ## ##     ## ##       ##    ##
+   ##     #######   #######  ########  ######
 
 def MergeSeg(seg_path_dic,out_path,seg_order):
     merge_lst = []
@@ -569,7 +573,7 @@ def MergeSeg(seg_path_dic,out_path,seg_order):
 def CorrectHisto(filepath,outpath,min_porcent=0.01,max_porcent = 0.95,i_min=-1500, i_max=4000):
 
     print("Correcting scan contrast :", filepath)
-    input_img = sitk.ReadImage(filepath) 
+    input_img = sitk.ReadImage(filepath)
     input_img = sitk.Cast(input_img, sitk.sitkFloat32)
     img = sitk.GetArrayFromImage(input_img)
 
@@ -684,10 +688,10 @@ def Rescale(filepath,output_spacing=[0.5, 0.5, 0.5]):
         interpolator = InterpolatorType.New()
         resampled_img = ResampleImage(img,output_size,output_spacing,output_origin,img.GetDirection(),interpolator,VectorImageType)
         return resampled_img
-        
+
     else:
         return img
-    
+
 
 
 def ResampleImage(input,size,spacing,origin,direction,interpolator,IVectorImageType,OVectorImageType):
@@ -705,17 +709,18 @@ def ResampleImage(input,size,spacing,origin,direction,interpolator,IVectorImageT
         resampleImageFilter.Update()
 
         resampled_img = resampleImageFilter.GetOutput()
+
         return resampled_img
 
 
 def SetSpacing(filepath,output_spacing=[0.5, 0.5, 0.5],interpolator="Linear",outpath=-1):
     """
-    Set the spacing of the image at the wanted scale 
+    Set the spacing of the image at the wanted scale
 
     Parameters
     ----------
     filePath
-     path of the image file 
+     path of the image file
     output_spacing
      whanted spacing of the new image file (default : [0.5, 0.5, 0.5])
     outpath
@@ -786,7 +791,7 @@ def SavePrediction(img,ref_filepath, outpath, output_spacing):
 
     # print(data)
 
-    ref_img = sitk.ReadImage(ref_filepath) 
+    ref_img = sitk.ReadImage(ref_filepath)
 
 
 
@@ -803,7 +808,7 @@ def SavePrediction(img,ref_filepath, outpath, output_spacing):
 
 
 def CleanScan(file_path):
-    input_img = sitk.ReadImage(file_path) 
+    input_img = sitk.ReadImage(file_path)
 
 
     closing_radius = 2
@@ -813,7 +818,7 @@ def CleanScan(file_path):
 
     labels_in = sitk.GetArrayFromImage(input_img)
     out, N = cc3d.largest_k(
-        labels_in, k=1, 
+        labels_in, k=1,
         connectivity=26, delta=0,
         return_N=True,
     )
@@ -846,14 +851,14 @@ def CleanScan(file_path):
 
 def SetSpacingFromRef(filepath,refFile,interpolator = "NearestNeighbor",outpath=-1):
     """
-    Set the spacing of the image the same as the reference image 
+    Set the spacing of the image the same as the reference image
 
     Parameters
     ----------
     filepath
-      image file 
+      image file
     refFile
-     path of the reference image 
+     path of the reference image
     interpolator
      Type of interpolation 'NearestNeighbor' or 'Linear'
     outpath
@@ -863,7 +868,7 @@ def SetSpacingFromRef(filepath,refFile,interpolator = "NearestNeighbor",outpath=
     img = itk.imread(filepath)
     ref = itk.imread(refFile)
 
-    img_sp = np.array(img.GetSpacing()) 
+    img_sp = np.array(img.GetSpacing())
     img_size = np.array(itk.size(img))
 
     ref_sp = np.array(ref.GetSpacing())
@@ -937,7 +942,7 @@ def SetSpacingFromRef(filepath,refFile,interpolator = "NearestNeighbor",outpath=
 def KeepLabel(filepath,outpath,labelToKeep):
 
     # print("Reading:", filepath)
-    input_img = sitk.ReadImage(filepath) 
+    input_img = sitk.ReadImage(filepath)
     img = sitk.GetArrayFromImage(input_img)
 
     for i in range(np.max(img)):
@@ -968,7 +973,7 @@ def Write(vtkdata, output_name):
 def SavePredToVTK(file_path,temp_folder,smoothing, out_folder, model_size):
     print("Generating VTK for ", file_path)
 
-    img = sitk.ReadImage(file_path) 
+    img = sitk.ReadImage(file_path)
     img_arr = sitk.GetArrayFromImage(img)
 
 
@@ -1014,11 +1019,11 @@ def SavePredToVTK(file_path,temp_folder,smoothing, out_folder, model_size):
 
         model = SmoothPolyDataFilter.GetOutput()
 
-        color = vtk.vtkUnsignedCharArray() 
-        color.SetName("Colors") 
-        color.SetNumberOfComponents(3) 
+        color = vtk.vtkUnsignedCharArray()
+        color.SetName("Colors")
+        color.SetNumberOfComponents(3)
         color.SetNumberOfTuples( model.GetNumberOfCells() )
-            
+
         for i in range(model.GetNumberOfCells()):
             color_tup=LABEL_COLORS[label]
             color.SetTuple(i, color_tup)
